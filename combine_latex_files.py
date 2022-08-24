@@ -10,7 +10,7 @@ from tkinter import ANCHOR, RIGHT, Y, Scrollbar, Tk, filedialog, Label, Button, 
 root = Tk()
 root.title("Latex Document Merger")
 
-root.geometry("550x300")
+root.geometry("600x360")
 
 class DragDropListbox(Listbox):
     """ A Tkinter listbox with drag'n'drop reordering of entries. """
@@ -44,7 +44,7 @@ def select_folder():
     if folder_selected:
         dir_select_btn.config(text="Folder Selected > " + folder_selected)
     else :
-        dir_select_btn.config(text="Select a Folder")
+        dir_select_btn.config(text="Click to Select a Folder")
 
     list_of_latex_files = []
     for file in os.listdir(folder_selected):
@@ -79,14 +79,30 @@ def extract_author(item):
             break
     return author_details
 
+def extract_macros(item):
+    list_macros = []
+    tex_file = open(item)
+
+    for line in tex_file:
+        if "\\begin{document}" in line:
+            break
+        elif "\\newcommand" in line or "\\renewcommand" in line:
+            list_macros.append(line.strip() + "\t%" + item[item.rindex("/") + 1 : ] + "\n")
+
+    return list_macros
+
 def merge_files():
     list_packages = set()
     author_details = []
     document_title = ""
+    list_macros = []
 
     print("File merge sequence: ")
 
-    combined_tex = open("combined.tex", "w")
+    if not os.path.exists("output_tex"):
+        os.makedirs("output_tex")
+
+    combined_tex = open("output_tex/combined.tex", "w")
     i = 1
     for items in tex_file_listbox.get(0, END) :
         print(str(i) + ". " + items)
@@ -95,6 +111,9 @@ def merge_files():
         for package in extract_usepackage(items):
             list_packages.add(package)
         author_details.append(extract_author(items))
+
+        for macros in extract_macros(items):
+            list_macros.append(macros)
 
     selected_file = tex_file_listbox.get(ANCHOR)
 
@@ -109,10 +128,13 @@ def merge_files():
     tex_file.close()
 
     combined_tex.write("\\documentclass{article}\n\n")
-    for package in list_packages:
-        combined_tex.write(package + "\n")
 
-    combined_tex.write("\n")
+    combined_tex.write("\n".join(list_packages))
+    combined_tex.write("\n\n")
+
+    combined_tex.write("\n".join(list_macros))
+    combined_tex.write("\n\n")
+
     combined_tex.write(document_title)
     combined_tex.write("\\author{" + ", ".join(author_details) + "}\n\n")
     combined_tex.write("\\begin{document}\n")
@@ -121,6 +143,8 @@ def merge_files():
     for item in tex_file_listbox.get(0, END):
         flg = False
         tex_body_file = open(item)
+        combined_tex.write("\n\n%=============================================================")
+        combined_tex.write("\n%" + item[item.rindex("/") + 1 : ] + "\n")
         for line in tex_body_file:
             if "\\begin{document}" in line:
                 flg = True
@@ -143,19 +167,23 @@ def merge_files():
     messagebox.showinfo("Success", ".tex Files Merged Successfully ! \n'combined.tex'")
 
 
-dir_select_btn = Button(root, text="Select a Folder", padx=10, pady=10, command=select_folder)
+dir_select_btn = Button(root, text="Click to Select a Folder", bg="blue", fg="white", font=font.Font(weight='bold'), padx=10, pady=10, command=select_folder)
 
 label_arrange_text = Label(root, text="Arrange Files below to merge them in sequence. And Select the file whose Title is to be used.", padx=10, pady=10)
 tex_file_listbox = DragDropListbox(root)
 merge_btn = Button(root, text="Merge", command=merge_files, bg="green", fg="white", font=font.Font(weight='bold'), padx=10, pady=10)
 Scrollbar = Scrollbar(root)
 
+label_code_author = Label(root, text="Latex Document Merger, Author: Muksam Limboo, August 23 - 2022 \nA Python based GUI application that combines multiple .tex files into a single .tex file.", font=font.Font(size="8"), pady="10")
+
 tex_file_listbox.config(yscrollcommand=Scrollbar.set)
 Scrollbar.config(command=tex_file_listbox.yview)
 Scrollbar.pack(side=RIGHT, fill=Y)
 
+label_code_author.pack()
+
 dir_select_btn.pack()
-label_arrange_text.pack(anchor='w')
+label_arrange_text.pack()
 tex_file_listbox.pack(fill=BOTH, expand=True)
 merge_btn.pack()
 
